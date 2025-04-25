@@ -186,6 +186,7 @@ void absVector(float* values, float* output, int N) {
 //  Note: Take a careful look at this loop indexing.  This example
 //  code is not guaranteed to work when (N % VECTOR_WIDTH) != 0.
 //  Why is that the case?
+//  每次操作都是宽度为VECTOR_WIDTH的向量
   for (int i=0; i<N; i+=VECTOR_WIDTH) {
 
     // All ones
@@ -249,7 +250,51 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
   // Your solution should work for any value of
   // N and VECTOR_WIDTH, not just when VECTOR_WIDTH divides N
   //
-  
+
+  __cs149_vec_float v;
+  __cs149_vec_int exp;
+  __cs149_vec_float result;
+  __cs149_vec_int zero      = _cs149_vset_int(0);
+  __cs149_vec_int one       = _cs149_vset_int(1);
+  __cs149_vec_float bound   = _cs149_vset_float(9.999999f);
+  __cs149_mask maskAll      = _cs149_init_ones();
+  __cs149_mask maskExp      = _cs149_init_ones(0);
+  __cs149_mask maskClamp    = _cs149_init_ones(0);
+
+  int alignedN = ((N + VECTOR_WIDTH - 1) / VECTOR_WIDTH) * VECTOR_WIDTH;
+  float* alignedValues = new float[alignedN];
+  int* alignedExponents = new int[alignedN];
+  float* alignedOutput = new float[alignedN];
+
+  for (int i = 0; i < N; ++i) {
+    alignedValues[i] = values[i];
+    alignedExponents[i] = exponents[i];
+  }
+  for (int i = N; i < alignedN; ++i) {
+    alignedExponents[i] = 0;
+  }
+
+  for (int i = 0; i < alignedN; i += VECTOR_WIDTH) {
+    // 增加VECTOR_WIDTH可能降低效率, "木桶效应"
+    result = _cs149_vset_float(1.f);
+    _cs149_vload_float(v, alignedValues + i, maskAll);
+    _cs149_vload_int(exp, alignedExponents + i, maskAll);
+
+    _cs149_vgt_int(maskExp, exp, zero, maskAll);
+    while (_cs149_cntbits(maskExp) > 0) {
+      _cs149_vmult_float(result, v, result, maskExp);
+      _cs149_vsub_int(exp, exp, one, maskExp);
+      _cs149_vgt_int(maskExp, exp, zero, maskExp);
+    } 
+
+    _cs149_vgt_float(maskClamp, result, bound, maskAll);
+    _cs149_vmove_float(result, bound, maskClamp);
+    _cs149_vstore_float(alignedOutput + i, result, maskAll);
+  }
+
+  for (int i = 0; i < N; ++i) {
+    output[i] = alignedOutput[i];
+  }
 }
 
 // returns the sum of all elements in values
@@ -270,11 +315,19 @@ float arraySumVector(float* values, int N) {
   //
   // CS149 STUDENTS TODO: Implement your vectorized version of arraySumSerial here
   //
+
+  float* sum = new float[VECTOR_WIDTH];
+  __cs149_vec_float x;
+  __cs149_vec_float temp = _cs149_vset_float(0.f);
+  __cs149_mask maskAll = _cs149_init_ones();
   
   for (int i=0; i<N; i+=VECTOR_WIDTH) {
-
+    _cs149_vload_float(x, values + i, maskAll);
+    _cs149_vadd_float(temp, x, temp, maskAll);
   }
 
-  return 0.0;
+  _cs149_vstore_float(sum, temp, maskAll);
+
+  return arraySumSerial(sum, VECTOR_WIDTH);
 }
 
