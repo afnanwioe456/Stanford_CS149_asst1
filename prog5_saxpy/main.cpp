@@ -41,6 +41,7 @@ int main() {
     float* arrayY = new float[N];
     float* resultSerial = new float[N];
     float* resultISPC = new float[N];
+    float* resultStreamingISPC = new float[N];
     float* resultTasks = new float[N];
 
     // initialize array values
@@ -65,10 +66,7 @@ int main() {
         minSerial = std::min(minSerial, endTime - startTime);
     }
 
-// printf("[saxpy serial]:\t\t[%.3f] ms\t[%.3f] GB/s\t[%.3f] GFLOPS\n",
-    //       minSerial * 1000,
-    //       toBW(TOTAL_BYTES, minSerial),
-    //       toGFLOPS(TOTAL_FLOPS, minSerial));
+    printf("[saxpy serial]:\t\t[%.3f] ms\n", minSerial * 1000);
 
     //
     // Run the ISPC (single core) implementation
@@ -87,6 +85,21 @@ int main() {
            minISPC * 1000,
            toBW(TOTAL_BYTES, minISPC),
            toGFLOPS(TOTAL_FLOPS, minISPC));
+
+    //
+    // Run the ISPC streaming (single core) implementation
+    //
+    double minStreamingISPC = 1e30;
+    for (int i = 0; i < 3; ++i) {
+        double startTime = CycleTimer::currentSeconds();
+        saxpy_streaming_ispc(N, scale, arrayX, arrayY, resultStreamingISPC);
+        double endTime = CycleTimer::currentSeconds();
+        minStreamingISPC = std::min(minStreamingISPC, endTime - startTime);
+    }
+
+    verifyResult(N, resultStreamingISPC, resultSerial);
+
+    printf("[saxpy straming ispc]:\t\t[%.3f] ms\n", minStreamingISPC * 1000);
 
     //
     // Run the ISPC (multi-core) implementation

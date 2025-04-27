@@ -61,7 +61,7 @@ void initData(double *data, int M, int N) {
     }
   }
 
-  free(centers);
+  delete[] centers;
 }
 
 void initCentroids(double *clusterCentroids, int K, int N) {

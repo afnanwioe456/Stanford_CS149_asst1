@@ -261,24 +261,12 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
   __cs149_mask maskExp      = _cs149_init_ones(0);
   __cs149_mask maskClamp    = _cs149_init_ones(0);
 
-  int alignedN = ((N + VECTOR_WIDTH - 1) / VECTOR_WIDTH) * VECTOR_WIDTH;
-  float* alignedValues = new float[alignedN];
-  int* alignedExponents = new int[alignedN];
-  float* alignedOutput = new float[alignedN];
-
-  for (int i = 0; i < N; ++i) {
-    alignedValues[i] = values[i];
-    alignedExponents[i] = exponents[i];
-  }
-  for (int i = N; i < alignedN; ++i) {
-    alignedExponents[i] = 0;
-  }
-
-  for (int i = 0; i < alignedN; i += VECTOR_WIDTH) {
+  int i = 0;
+  for (; i < N; i += VECTOR_WIDTH) {
     // 增加VECTOR_WIDTH可能降低效率, "木桶效应"
     result = _cs149_vset_float(1.f);
-    _cs149_vload_float(v, alignedValues + i, maskAll);
-    _cs149_vload_int(exp, alignedExponents + i, maskAll);
+    _cs149_vload_float(v, values + i, maskAll);
+    _cs149_vload_int(exp, exponents + i, maskAll);
 
     _cs149_vgt_int(maskExp, exp, zero, maskAll);
     while (_cs149_cntbits(maskExp) > 0) {
@@ -289,12 +277,11 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
 
     _cs149_vgt_float(maskClamp, result, bound, maskAll);
     _cs149_vmove_float(result, bound, maskClamp);
-    _cs149_vstore_float(alignedOutput + i, result, maskAll);
+    _cs149_vstore_float(output + i, result, maskAll);
   }
 
-  for (int i = 0; i < N; ++i) {
-    output[i] = alignedOutput[i];
-  }
+  i -= VECTOR_WIDTH;
+  clampedExpSerial(values + i, exponents + i, output + i, N - i);
 }
 
 // returns the sum of all elements in values
